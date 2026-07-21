@@ -1,0 +1,21 @@
+# Axiom flow — composes published nodes into a graph.
+# Reference nodes by package + node name (discover them with: axiom search --json).
+# Positions are coarse grid cells; omit col/row to auto-layout (axiom flow layout).
+name: iban-smoke-flow
+description: "Construct an IBAN from a country+BBAN, then validate the constructed IBAN — a real two-node flow within iban-tools."
+
+nodes:
+  - alias: compose
+    package: christiangeorgelucas/iban-tools@0.1.0
+    node: ComposeIban
+  - alias: validate
+    package: christiangeorgelucas/iban-tools@0.1.0
+    node: ValidateIban
+
+edges:
+  - from: compose
+    to: validate
+    adapter:
+      iban: iban
+
+start: compose
