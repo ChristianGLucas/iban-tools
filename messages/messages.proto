@@ -1,0 +1,231 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.iban_tools;
+
+// Input for ValidateIban: the IBAN string to validate, accepted in either
+// print (spaced) or electronic (unspaced) form, any case.
+message ValidateIbanInput {
+  string iban = 1;
+  // When true, an otherwise-structurally-valid Swiss/Liechtenstein QR-IBAN
+  // (a national-only payment variant) is reported invalid. Default false
+  // (QR-IBANs are accepted, matching the underlying library's default).
+  bool reject_qr_iban = 2;
+}
+
+// Result of validating an IBAN: whether it is valid, and if not, every
+// specific reason it failed (checksum, length, country, structure).
+message ValidateIbanOutput {
+  bool valid = 1;
+  // Machine-readable failure codes, e.g. "WRONG_IBAN_CHECKSUM",
+  // "NO_IBAN_COUNTRY", "WRONG_BBAN_LENGTH", "WRONG_BBAN_FORMAT",
+  // "CHECKSUM_NOT_NUMBER", "WRONG_ACCOUNT_BANK_BRANCH_CHECKSUM",
+  // "QR_IBAN_NOT_ALLOWED", "NO_IBAN_PROVIDED". Empty when valid.
+  repeated string error_codes = 2;
+  // Human-readable summary of the failure reason(s); "" when valid.
+  string reason = 3;
+}
+
+// Input for ParseIban: the IBAN string to decompose into components.
+message ParseIbanInput {
+  string iban = 1;
+}
+
+// Structural breakdown of an IBAN into its components. bank_identifier,
+// branch_identifier, and account_number are populated only when the IBAN
+// is valid AND its country's specification defines that sub-field
+// (not every country's BBAN layout exposes all three).
+message ParseIbanOutput {
+  bool valid = 1;
+  // The IBAN normalized to electronic format (uppercase, no spaces/dashes).
+  string iban = 2;
+  string country_code = 3;
+  // The two check digits (positions 3-4) used in the mod-97-10 checksum.
+  string check_digits = 4;
+  // Basic Bank Account Number: everything after the country code + check digits.
+  string bban = 5;
+  string bank_identifier = 6;
+  string branch_identifier = 7;
+  string account_number = 8;
+  // Set when valid=false, explaining why the IBAN could not be parsed.
+  string error = 9;
+}
+
+// Input for FormatIban: reformat an already-known IBAN for display or
+// transmission. Does not itself validate the IBAN.
+message FormatIbanInput {
+  string iban = 1;
+  // "print" groups the IBAN in blocks of 4 characters separated by
+  // `separator` (spec-conventional paper/screen display); "electronic"
+  // (the default when empty) strips all spaces/dashes for machine
+  // transmission (SEPA electronic format).
+  string style = 2;
+  // Separator used between groups when style="print". Defaults to a
+  // single space when empty.
+  string separator = 3;
+}
+
+message FormatIbanOutput {
+  string formatted = 1;
+  // Set when `style` is neither "print", "electronic", nor empty.
+  string error = 2;
+}
+
+// Input for ComposeIban: construct a full, checksum-correct IBAN from a
+// country code and the country-specific BBAN (bank/branch/account digits).
+message ComposeIbanInput {
+  string country_code = 1;
+  string bban = 2;
+}
+
+message ComposeIbanOutput {
+  bool success = 1;
+  // Electronic (unspaced) form of the composed IBAN; "" on failure.
+  string iban = 2;
+  // Print (grouped-in-4s) form of the composed IBAN; "" on failure.
+  string iban_printable = 3;
+  // Set when composition fails: country unknown, or bban doesn't match
+  // that country's expected length/structure.
+  string error = 4;
+}
+
+// Input for CheckIbanCountry: confirm an IBAN's country matches what the
+// caller expected (e.g. a form field that requires a specific country).
+message CheckIbanCountryInput {
+  string iban = 1;
+  // ISO 3166-1 alpha-2 code the caller expects, e.g. "DE".
+  string expected_country_code = 2;
+}
+
+message CheckIbanCountryOutput {
+  // True only when the IBAN is itself structurally valid AND its country
+  // equals expected_country_code.
+  bool matches = 1;
+  // The country code actually extracted from the IBAN (best-effort even
+  // when the IBAN fails full validation), "" if it cannot be determined.
+  string actual_country_code = 2;
+  bool iban_valid = 3;
+  string error = 4;
+}
+
+// Input for IsQrIban: detect the Swiss/Liechtenstein QR-IBAN variant
+// (identified by a reserved IID range in the bank-identifier position).
+message IsQrIbanInput {
+  string iban = 1;
+}
+
+message IsQrIbanOutput {
+  bool is_qr_iban = 1;
+  string country_code = 2;
+  string error = 3;
+}
+
+// Input for IsSepaCountry: whether a country participates in SEPA
+// (Single Euro Payments Area).
+message IsSepaCountryInput {
+  string country_code = 1;
+}
+
+message IsSepaCountryOutput {
+  bool is_sepa = 1;
+  // False when country_code is not a recognized ISO 3166-1 alpha-2 code
+  // at all (as opposed to recognized-but-not-SEPA).
+  bool recognized_country = 2;
+  string error = 3;
+}
+
+// Input for GetCountrySpec: look up one country's IBAN specification.
+message GetCountrySpecInput {
+  string country_code = 1;
+}
+
+message GetCountrySpecOutput {
+  // True when country_code is a recognized ISO 3166-1 alpha-2 code in the
+  // underlying registry (independent of whether it uses IBAN at all).
+  bool found = 1;
+  string country_code = 2;
+  // True when the country is an official member of the IBAN registry.
+  bool iban_registry_member = 3;
+  bool sepa = 4;
+  // Expected total IBAN length for this country; 0 when not applicable/unknown.
+  int32 iban_length = 5;
+  // Regular expression describing the country's BBAN structure (digits
+  // after the check digits); "" when not applicable/unknown.
+  string bban_pattern = 6;
+  string error = 7;
+}
+
+// Input for ListSupportedCountries: enumerate every country the underlying
+// registry recognizes, optionally filtered.
+message ListSupportedCountriesInput {
+  // When true, only return countries that are official IBAN registry members.
+  bool iban_registry_only = 1;
+  // When true, only return SEPA member countries.
+  bool sepa_only = 2;
+}
+
+message CountrySummary {
+  string country_code = 1;
+  bool iban_registry_member = 2;
+  bool sepa = 3;
+  int32 iban_length = 4;
+}
+
+message ListSupportedCountriesOutput {
+  repeated CountrySummary countries = 1;
+  int32 count = 2;
+}
+
+// Input for ValidateBic: the BIC/SWIFT code to validate.
+message ValidateBicInput {
+  string bic = 1;
+}
+
+message ValidateBicOutput {
+  bool valid = 1;
+  // Machine-readable failure codes: "NO_BIC_PROVIDED", "NO_BIC_COUNTRY",
+  // "WRONG_BIC_FORMAT". Empty when valid.
+  repeated string error_codes = 2;
+  string reason = 3;
+}
+
+// Input for ParseBic: decompose a BIC/SWIFT code into its components.
+message ParseBicInput {
+  string bic = 1;
+}
+
+message ParseBicOutput {
+  bool valid = 1;
+  // 4-letter institution/bank code.
+  string bank_code = 2;
+  // ISO 3166-1 alpha-2 country code.
+  string country_code = 3;
+  // 2-character location code.
+  string location_code = 4;
+  // 3-character branch code; "" when the BIC is the 8-character (no-branch) form.
+  string branch_code = 5;
+  // True when the input explicitly supplied a 3-character branch suffix
+  // (11-character BIC form), independent of whether that suffix is the
+  // literal primary-office code "XXX".
+  bool has_branch_code = 6;
+  // True when the second character of the location code is '0', the
+  // SWIFT convention marking a test/non-live BIC.
+  bool is_test_bic = 7;
+  string error = 8;
+}

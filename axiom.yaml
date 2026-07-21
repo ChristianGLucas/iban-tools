@@ -1,0 +1,141 @@
+name: christiangeorgelucas/iban-tools
+version: 0.1.0
+language: typescript
+description: >-
+  Composable Axiom nodes for deterministic validation, parsing, formatting,
+  and construction of International Bank Account Numbers (IBAN, ISO 13616)
+  and Business Identifier Codes (BIC/SWIFT, ISO 9362) — checksum + per-
+  country BBAN structure validation with specific failure reasons,
+  component extraction (country code, check digits, BBAN, bank/branch/
+  account identifiers), print vs electronic formatting, IBAN construction
+  from country+BBAN, country-spec and SEPA-membership lookup, and BIC
+  parsing including test/live detection — wrapping the dual MIT/MPL-2.0-
+  licensed ibantools library (used here under MIT), a pure, dependency-
+  free TypeScript implementation with all country specifications embedded
+  at build time. Every node is stateless, deterministic, and fully
+  offline: no network call, no wall-clock read, no randomness. Malformed
+  or oversized input returns a structured error, never a crash.
+license: MIT
+author: Christian George Lucas
+tags:
+    - iban
+    - bic
+    - swift
+    - bank-account
+    - sepa
+    - iso-13616
+    - iso-9362
+    - checksum
+    - validation
+    - finance
+nodes:
+    - name: ValidateIban
+      input: ValidateIbanInput
+      output: ValidateIbanOutput
+      description: >-
+        Validate an IBAN's country-specific length, BBAN character
+        structure, any country-specific internal check digit, and the
+        mod-97-10 (ISO 7064) IBAN checksum. Accepts print form ("NL91 ABNA
+        0417 1643 00") or electronic form, any case. Returns valid=true/
+        false plus every specific error code and a human-readable reason
+        — never a bare boolean. E.g. "NL91ABNA0417164300" -> valid=true;
+        "NL92ABNA0417164300" (transposed check digits) -> valid=false,
+        WRONG_IBAN_CHECKSUM. Set reject_qr_iban=true to also reject an
+        otherwise-valid Swiss/Liechtenstein QR-IBAN.
+    - name: ParseIban
+      input: ParseIbanInput
+      output: ParseIbanOutput
+      description: >-
+        Parse an IBAN into its components: country code, the two check
+        digits, the BBAN, and — where the country's specification defines
+        them — bank identifier, branch identifier, and account number.
+        E.g. "NL91 ABNA 0417 1643 00" -> country_code "NL", check_digits
+        "91", bban "ABNA0417164300", bank_identifier "ABNA", account_number
+        "0417164300". When the IBAN fails validation, valid=false and the
+        structural sub-fields are empty, with error explaining why.
+    - name: FormatIban
+      input: FormatIbanInput
+      output: FormatIbanOutput
+      description: >-
+        Reformat an IBAN string for print (grouped in blocks of 4, e.g.
+        "NL91 ABNA 0417 1643 00") or electronic transmission (no
+        separators, e.g. "NL91ABNA0417164300"). Pure reformatting — does
+        NOT validate the IBAN (use ValidateIban for that). style accepts
+        "print" or "electronic" ("" defaults to "electronic"); an
+        unrecognized style value is a structured error.
+    - name: ComposeIban
+      input: ComposeIbanInput
+      output: ComposeIbanOutput
+      description: >-
+        Construct a full, checksum-correct IBAN from a country code and
+        that country's BBAN, computing the two mod-97-10 check digits.
+        E.g. country_code "NL", bban "ABNA0417164300" -> iban
+        "NL91ABNA0417164300". Fails with a structured error when the
+        country is unrecognized or the BBAN's length/structure doesn't
+        match that country's IBAN specification.
+    - name: CheckIbanCountry
+      input: CheckIbanCountryInput
+      output: CheckIbanCountryOutput
+      description: >-
+        Check whether an IBAN's country matches an expected country code
+        (e.g. confirming a payer's IBAN is from the country their form
+        claims). matches=true only when the IBAN is itself fully valid AND
+        its country equals expected_country_code; actual_country_code is
+        still reported best-effort even when the IBAN fails validation.
+    - name: IsQrIban
+      input: IsQrIbanInput
+      output: IsQrIbanOutput
+      description: >-
+        Detect whether an IBAN is a Swiss/Liechtenstein QR-IBAN — a
+        national-only payment variant identified by a reserved Institution
+        ID range at positions 5-9 (country CH or LI). E.g.
+        "CH4431999123000889012" -> is_qr_iban=true. Checks structure only,
+        independent of full checksum validity.
+    - name: IsSepaCountry
+      input: IsSepaCountryInput
+      output: IsSepaCountryOutput
+      description: >-
+        Check whether a country participates in SEPA (the Single Euro
+        Payments Area), e.g. "DE" -> is_sepa=true, "US" -> is_sepa=false.
+        recognized_country distinguishes "not a real ISO 3166-1 alpha-2
+        code" (false) from "a real country that just isn't in SEPA" (true,
+        with is_sepa=false).
+    - name: GetCountrySpec
+      input: GetCountrySpecInput
+      output: GetCountrySpecOutput
+      description: >-
+        Look up one country's IBAN specification: whether it is an
+        official IBAN-registry member, whether it is a SEPA member, its
+        expected total IBAN length, and its BBAN structure regular
+        expression. E.g. "DE" -> iban_registry_member=true, iban_length=22.
+        found=false when the country code is not recognized at all.
+    - name: ListSupportedCountries
+      input: ListSupportedCountriesInput
+      output: ListSupportedCountriesOutput
+      description: >-
+        List every country the underlying registry recognizes, each with
+        its IBAN-registry-membership flag, SEPA-membership flag, and
+        expected IBAN length. Optionally filter to IBAN-registry members
+        and/or SEPA members only (iban_registry_only, sepa_only). Results
+        are sorted by country code for deterministic output.
+    - name: ValidateBic
+      input: ValidateBicInput
+      output: ValidateBicOutput
+      description: >-
+        Validate a BIC/SWIFT code's structure: 4-letter bank code +
+        2-letter recognized ISO 3166-1 country code + 2-character location
+        code + optional 3-character branch code (8 or 11 characters
+        total). BIC has no checksum digit — this is structural validation
+        only. E.g. "DEUTDEFF" -> valid=true; "ABN4NL2A" -> valid=false,
+        WRONG_BIC_FORMAT (digit in the letters-only bank-code position).
+        Returns every specific failure reason.
+    - name: ParseBic
+      input: ParseBicInput
+      output: ParseBicOutput
+      description: >-
+        Parse a BIC/SWIFT code into bank code, country code, location
+        code, and branch code (when the 11-character form was given). E.g.
+        "DEUTDEFFXXX" -> bank_code "DEUT", country_code "DE",
+        location_code "FF", branch_code "XXX". is_test_bic reports the
+        SWIFT convention that a second location-code character of '0'
+        marks a test/non-live BIC, e.g. "DEUTDEF0" -> is_test_bic=true.
