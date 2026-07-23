@@ -4,7 +4,7 @@ Composable Axiom nodes for deterministic validation, parsing, formatting, and
 construction of International Bank Account Numbers (IBAN, ISO 13616) and
 Business Identifier Codes (BIC/SWIFT, ISO 9362).
 
-Built for the [Axiom](https://axiom.co) marketplace under the
+Built for the [Axiom](https://axiomide.com) marketplace under the
 `christiangeorgelucas` handle. Wraps [ibantools](https://github.com/Simplify/ibantools)
 (dual MIT/MPL-2.0 licensed — used here under MIT), a pure, dependency-free
 TypeScript implementation with all country IBAN/BIC specifications embedded
