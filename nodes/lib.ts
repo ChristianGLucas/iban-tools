@@ -3,11 +3,6 @@
 // collected.
 //
 // SECURITY / DETERMINISM DISCIPLINE:
-//   - Every node bounds its raw input length BEFORE handing it to ibantools
-//     (an unbounded string still runs through a country-specific regex, and
-//     while ibantools' per-country patterns are simple fixed-length classes
-//     with no catastrophic backtracking, bounding cost on the raw input is
-//     cheap insurance and never assume a real IBAN/BIC/BBAN is long).
 //   - ibantools' own validateIBAN/isQRIBAN/isValidBIC/composeIBAN do NOT
 //     normalize whitespace, dashes, or case themselves (they slice the raw
 //     string directly) — only extractIBAN/electronicFormatIBAN/
@@ -21,20 +16,10 @@
 
 import * as ibantools from 'ibantools';
 
-/** Real-world IBANs are <= 34 characters (ISO 13616). Allow generous slack
- * for print-format separators (spaces/dashes) before rejecting outright. */
-export const MAX_IBAN_INPUT_LEN = 64;
-/** ISO 13616 hard ceiling once formatting characters are stripped. */
+/** ISO 13616 hard ceiling: no real IBAN, once formatting characters are
+ * stripped, can exceed 34 characters — this is a genuine domain-format
+ * bound, not a payload guard. */
 export const MAX_IBAN_ELECTRONIC_LEN = 34;
-/** Real-world BIC/SWIFT codes are exactly 8 or 11 characters; allow slack
- * for surrounding whitespace before rejecting outright. */
-export const MAX_BIC_INPUT_LEN = 24;
-/** ISO 3166-1 alpha-2 codes are exactly 2 letters; allow slack for
- * surrounding whitespace before rejecting outright. */
-export const MAX_COUNTRY_CODE_INPUT_LEN = 8;
-/** BBANs (country-specific account identifiers) top out around 30 chars
- * (34-char max IBAN minus the 4-char country+checksum prefix). */
-export const MAX_BBAN_INPUT_LEN = 48;
 
 export interface NormResult {
   value?: string;
@@ -47,7 +32,6 @@ export interface NormResult {
 export function normalizeIban(raw: string): NormResult {
   if (typeof raw !== 'string') return { error: 'IBAN_NOT_A_STRING' };
   if (raw.length === 0) return { error: 'NO_IBAN_PROVIDED' };
-  if (raw.length > MAX_IBAN_INPUT_LEN) return { error: 'IBAN_TOO_LONG' };
   const electronic = ibantools.electronicFormatIBAN(raw);
   if (!electronic) return { error: 'NO_IBAN_PROVIDED' };
   if (electronic.length > MAX_IBAN_ELECTRONIC_LEN) return { error: 'IBAN_TOO_LONG' };
@@ -60,7 +44,6 @@ export function normalizeIban(raw: string): NormResult {
 export function normalizeBic(raw: string): NormResult {
   if (typeof raw !== 'string') return { error: 'BIC_NOT_A_STRING' };
   if (raw.length === 0) return { error: 'NO_BIC_PROVIDED' };
-  if (raw.length > MAX_BIC_INPUT_LEN) return { error: 'BIC_TOO_LONG' };
   const value = raw.trim().toUpperCase();
   if (value.length === 0) return { error: 'NO_BIC_PROVIDED' };
   return { value };
@@ -71,7 +54,6 @@ export function normalizeBic(raw: string): NormResult {
 export function normalizeCountryCode(raw: string): NormResult {
   if (typeof raw !== 'string') return { error: 'COUNTRY_CODE_NOT_A_STRING' };
   if (raw.length === 0) return { error: 'NO_COUNTRY_CODE_PROVIDED' };
-  if (raw.length > MAX_COUNTRY_CODE_INPUT_LEN) return { error: 'COUNTRY_CODE_TOO_LONG' };
   const value = raw.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(value)) return { error: 'INVALID_COUNTRY_CODE_FORMAT' };
   return { value };
@@ -82,7 +64,6 @@ export function normalizeCountryCode(raw: string): NormResult {
 export function checkBbanBounds(raw: string): NormResult {
   if (typeof raw !== 'string') return { error: 'BBAN_NOT_A_STRING' };
   if (raw.length === 0) return { error: 'NO_BBAN_PROVIDED' };
-  if (raw.length > MAX_BBAN_INPUT_LEN) return { error: 'BBAN_TOO_LONG' };
   return { value: raw };
 }
 

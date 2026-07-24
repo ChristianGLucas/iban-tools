@@ -62,11 +62,14 @@ describe('ValidateBic', () => {
     expect(result.getErrorCodesList()).toEqual(['NO_BIC_PROVIDED']);
   });
 
-  it('rejects oversized input with a structured error, not a crash', () => {
+  it('handles a large input with a structured error, not a crash', () => {
+    // This package no longer caps raw input length itself — the platform's
+    // ingress/transport already bounds request size. A large non-BIC
+    // string is still cleanly rejected as a structural mismatch.
     const input = new ValidateBicInput();
     input.setBic('X'.repeat(1000));
     const result = validateBic(testContext, input);
     expect(result.getValid()).toBe(false);
-    expect(result.getErrorCodesList()).toEqual(['BIC_TOO_LONG']);
+    expect(result.getErrorCodesList()).toEqual(['NO_BIC_COUNTRY']);
   });
 });
